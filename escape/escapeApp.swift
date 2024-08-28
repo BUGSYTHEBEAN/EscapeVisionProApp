@@ -6,16 +6,25 @@
 //
 
 import SwiftUI
+import RealityKitContent
 
 @main
 struct escapeApp: App {
+    @State private var level = 1
+    
+    init() {
+        RealityKitContent.ButtonComponent.registerComponent()
+        RealityKitContent.GestureComponent.registerComponent()
+    }
+    
     var body: some Scene {
-        WindowGroup {
-            ContentView()
-        }.windowStyle(.volumetric)
-
-        ImmersiveSpace(id: "ImmersiveSpace") {
-            ImmersiveView()
+        // https://developer.apple.com/documentation/SwiftUI/EnvironmentValues/openImmersiveSpace
+        ImmersiveSpace(id: "Room01") {
+            Room01()
         }.immersionStyle(selection: .constant(.full), in: .full)
+        
+        WindowGroup(id: "Menu") {
+            Menu()
+        }.windowStyle(.volumetric)
     }
 }
