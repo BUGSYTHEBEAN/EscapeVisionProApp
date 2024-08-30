@@ -109,7 +109,7 @@ struct Room01: View, Room {
             }
             let correctPin = "23214"
             if let buttonComponent = safeButton.entity.components[ButtonComponent.self] {
-                safePin.append(buttonComponent.getButtonNum().description)
+                safePin.append(buttonComponent.getSecondaryName())
                 safeButton.entity.stopAllAnimations()
                 safeButton.entity.position.z = 0
                 if let buttonAnimation = try? AnimationResource.generate(

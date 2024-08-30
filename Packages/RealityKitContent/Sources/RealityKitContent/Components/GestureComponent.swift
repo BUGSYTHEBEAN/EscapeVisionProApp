@@ -50,6 +50,8 @@ public struct GestureComponent: Component, Codable {
     
     /// A Boolean value that indicates whether a gesture can drag the entity.
     public var canDrag: Bool = true
+    /// A Boolean value that indicates whether a gesture can drag the entity along the x axis.
+    public var horizontalDragOnly: Bool = false
     
     /// A Boolean value that indicates whether a dragging can move the object in an arc, similar to dragging windows or moving the keyboard.
     public var pivotOnDrag: Bool = true
@@ -163,9 +165,13 @@ public struct GestureComponent: Component, Codable {
    
         let translation3D = value.convert(value.gestureValue.translation3D, from: .local, to: .scene)
         
-        let offset = SIMD3<Float>(x: Float(translation3D.x),
+        var offset = SIMD3<Float>(x: Float(translation3D.x),
                                   y: Float(translation3D.y),
                                   z: Float(translation3D.z))
+        if (horizontalDragOnly) {
+            offset.y = 0
+            offset.z = 0
+        }
         
         entity.scenePosition = state.dragStartPosition + offset
         if let initialOrientation = state.initialOrientation {
