@@ -21,19 +21,30 @@ struct Room01: View, Room {
     @State private var fireSubscription: EventSubscription?
     @State private var lockSubscription: EventSubscription?
     // Game Progression
+    @State private var isIntroComplete = false
     @State private var isFireLit = false
     @State private var isSafeOpened = false
     @State private var isLockOpened = false
     // Misc
     @State private var safePin: String = ""
+    let safeButtonNames = ["Safe_Red", "Safe_Blue", "Safe_Green", "Safe_Pink"]
     @State private var timeEntity: ModelEntity?
     @State private var fireParticleEmitter: Entity?
     @State private var fireLastUpdated = Date()
     @State private var fireColor = 0
     // Sounds
     @State private var clickSound: AudioFileResource?
-    
+    @State private var ghostIntro1: AudioFileResource?
+    // Ghost Intro, negative value is offset for intro starting
+    @State private var ghostTimer = -2
+    @State private var ghostEntity: Entity?
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    let ghostTransforms = [
+        3: Transform(rotation: simd_quatf(ix: 0, iy: 0, iz: 0.5, r: 0.866), translation: SIMD3(x: -1.15, y: 0.1, z: 0)),
+        7: Transform(rotation: simd_quatf(ix: 0, iy: 0, iz: -0.676, r: 0.737), translation: SIMD3(x: 1.50, y: -1.20, z: 0.4)),
+        14: Transform(rotation: simd_quatf(ix: 0, iy: 0, iz: 0.462, r: 0.887), translation: SIMD3(x: -1.1, y: -0.75, z: -0.4))
+    ]
+    let introCompleteAtSec = 15
     
     var body: some View {
         RealityView { content in
@@ -49,6 +60,7 @@ struct Room01: View, Room {
                 immersiveContentEntity.components.set(ImageBasedLightReceiverComponent(imageBasedLight: immersiveContentEntity))
                 
                 if let ghost = immersiveContentEntity.findEntity(named: "Ghost") {
+                    ghostEntity = ghost
                     if let ghostAni = ghost.availableAnimations.first {
                         ghost.playAnimation(ghostAni.repeat())
                     }
@@ -59,6 +71,7 @@ struct Room01: View, Room {
                 if let timeTransform = immersiveContentEntity.findEntity(named: "Timer_Transform") {
                     if (timeEntity != nil) {
                         timeTransform.addChild(timeEntity!)
+                        timeTransform.components.set(HoverEffectComponent())
                     }
                 }
                 
@@ -77,6 +90,13 @@ struct Room01: View, Room {
                     fireParticleEmitter = fire
                     setupFireParticlePuzzle(content: content)
                 }
+                
+                // Safe buttons
+                safeButtonNames.forEach({ buttonName in
+                    if let safeButton = immersiveContentEntity.findEntity(named: buttonName) {
+                        safeButton.components.set(HoverEffectComponent())
+                    }
+                })
                 
                 if let lock = immersiveContentEntity.findEntity(named: "Lock") {
                     lockSubscription = content.subscribe(to: CollisionEvents.Began.self, on: lock, { event in
@@ -97,6 +117,9 @@ struct Room01: View, Room {
             // Load Assets
             if let click = try? AudioFileResource.load(named: "/Root/Sounds/Click", from: "Room01.usda", in: realityKitContentBundle) {
                 clickSound = click
+            }
+            if let intro1 = try? AudioFileResource.load(named: "/Root/Sounds/Intro_1", from: "Room01.usda", in: realityKitContentBundle) {
+                ghostIntro1 = intro1
             }
         } update: { content in
         }
@@ -150,6 +173,22 @@ struct Room01: View, Room {
             }
         }))
         .onReceive(timer, perform: {time in
+            // Intro before timer starts
+            if (!isIntroComplete) {
+                ghostTimer += 1
+                if (ghostTimer == 0 && ghostIntro1 != nil && ghostEntity != nil) {
+                    ghostEntity!.playAudio(ghostIntro1!)
+                }
+                if let transform = ghostTransforms[ghostTimer] {
+                    if (ghostEntity != nil) {
+                        ghostEntity!.move(to: transform, relativeTo: ghostEntity!, duration: 1.5)
+                    }
+                }
+                if (ghostTimer > introCompleteAtSec) {
+                    isIntroComplete = true
+                }
+                return
+            }
             timeRemaining = updateTimeTextEntity(timeText: timeEntity)
             // TODO Lose state
         })

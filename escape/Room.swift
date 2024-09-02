@@ -42,7 +42,7 @@ extension Room {
             timeText?.model?.materials = [redMaterial]
         }
         
-        if (timeRemaining > 0) {
+        if (timeRemaining >= 0) {
             if (timeText != nil) {
                 try? timeText!.model?.mesh.replace(with: generateTimeTextMesh().contents)
             }
