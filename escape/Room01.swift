@@ -8,23 +8,30 @@
 import SwiftUI
 import RealityKit
 import RealityKitContent
+import CoreData
 
 struct Room01: View, Room {
     @Environment(\.openWindow) private var openWindow
     @Environment(\.dismissWindow) private var dismissWindow
     @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
+    @Environment(\.managedObjectContext) private var viewContext
     // Protocol vars for all rooms
-    @State internal var timeRemaining = 5 * 60
+    static let LEVEL_TIME = 5 * 60
+    @State internal var timeRemaining = LEVEL_TIME
     // Subscriptions, subs are permanent
     @State private var subs: [EventSubscription] = []
+    @State private var safeTopSubscription: EventSubscription?
     @State private var lighterSubscription: EventSubscription?
     @State private var fireSubscription: EventSubscription?
     @State private var lockSubscription: EventSubscription?
     // Game Progression
+    @State private var isIntroDonutComplete = false
+    @State private var isIntroButtonComplete = false
     @State private var isIntroComplete = false
     @State private var isFireLit = false
     @State private var isSafeOpened = false
     @State private var isLockOpened = false
+    @State private var isLevelComplete = false
     // Misc
     @State private var safePin: String = ""
     let safeButtonNames = ["Safe_Red", "Safe_Blue", "Safe_Green", "Safe_Pink"]
@@ -35,6 +42,8 @@ struct Room01: View, Room {
     // Sounds
     @State private var clickSound: AudioFileResource?
     @State private var ghostIntro1: AudioFileResource?
+    @State private var ghostIntro2: AudioFileResource?
+    @State private var ghostIntro3: AudioFileResource?
     // Ghost Intro, negative value is offset for intro starting
     @State private var ghostTimer = -2
     @State private var ghostEntity: Entity?
@@ -42,9 +51,11 @@ struct Room01: View, Room {
     let ghostTransforms = [
         3: Transform(rotation: simd_quatf(ix: 0, iy: 0, iz: 0.5, r: 0.866), translation: SIMD3(x: -1.15, y: 0.1, z: 0)),
         7: Transform(rotation: simd_quatf(ix: 0, iy: 0, iz: -0.676, r: 0.737), translation: SIMD3(x: 1.50, y: -1.20, z: 0.4)),
-        14: Transform(rotation: simd_quatf(ix: 0, iy: 0, iz: 0.462, r: 0.887), translation: SIMD3(x: -1.1, y: -0.75, z: -0.4))
+        14: Transform(rotation: simd_quatf(ix: 0, iy: 0, iz: 0.462, r: 0.887), translation: SIMD3(x: -1.1, y: -0.75, z: -0.4)),
+        20: Transform(rotation: simd_quatf(ix: 0, iy: 0, iz: -0.676, r: 0.737), translation: SIMD3(x: 1.50, y: -1.25, z: 0.15)),
+        34: Transform(rotation: simd_quatf(ix: 0, iy: 0, iz: 0.462, r: 0.887), translation: SIMD3(x: -0.95, y: -0.35, z: 0.20))
     ]
-    let introCompleteAtSec = 15
+    let introCompleteAtSec = 36
     
     var body: some View {
         RealityView { content in
@@ -73,6 +84,17 @@ struct Room01: View, Room {
                         timeTransform.addChild(timeEntity!)
                         timeTransform.components.set(HoverEffectComponent())
                     }
+                }
+                
+                if let topSafe = immersiveContentEntity.findEntity(named: "Safe_Top_Hitbox") as? ModelEntity {
+                    topSafe.model?.materials = [UnlitMaterial(color: .clear)]
+                    safeTopSubscription = content.subscribe(to: CollisionEvents.Began.self, on: topSafe, { event in
+                        if (event.entityB.name == "Donut") {
+                            isIntroDonutComplete = true
+                            topSafe.removeFromParent()
+                            safeTopSubscription?.cancel()
+                        }
+                    })
                 }
                 
                 if let fireplace = immersiveContentEntity.findEntity(named: "FireplaceHitbox") as? ModelEntity {
@@ -121,6 +143,12 @@ struct Room01: View, Room {
             if let intro1 = try? AudioFileResource.load(named: "/Root/Sounds/Intro_1", from: "Room01.usda", in: realityKitContentBundle) {
                 ghostIntro1 = intro1
             }
+            if let intro2 = try? AudioFileResource.load(named: "/Root/Sounds/Intro_2", from: "Room01.usda", in: realityKitContentBundle) {
+                ghostIntro2 = intro2
+            }
+            if let intro3 = try? AudioFileResource.load(named: "/Root/Sounds/Intro_3", from: "Room01.usda", in: realityKitContentBundle) {
+                ghostIntro3 = intro3
+            }
         } update: { content in
         }
         // Handle all moveable objects
@@ -132,7 +160,11 @@ struct Room01: View, Room {
             }
             let correctPin = "23214"
             if let buttonComponent = safeButton.entity.components[ButtonComponent.self] {
-                safePin.append(buttonComponent.getSecondaryName())
+                if (!isIntroComplete) {
+                    isIntroButtonComplete = true
+                } else {
+                    safePin.append(buttonComponent.getSecondaryName())
+                }
                 safeButton.entity.stopAllAnimations()
                 safeButton.entity.position.z = 0
                 if let buttonAnimation = try? AnimationResource.generate(
@@ -164,6 +196,9 @@ struct Room01: View, Room {
                 if (ani != nil) {
                     e.entity.playAnimation(ani!)
                 }
+                // Room Win
+                isLevelComplete = true
+                saveRoomComplete()
             }
             if (e.entity.name == "Timer_Transform") {
                 Task {
@@ -175,22 +210,36 @@ struct Room01: View, Room {
         .onReceive(timer, perform: {time in
             // Intro before timer starts
             if (!isIntroComplete) {
-                ghostTimer += 1
+                if (ghostTimer < 18 || (isIntroDonutComplete && ghostTimer < 29) || isIntroButtonComplete) {
+                    ghostTimer += 1
+                }
+                // Play intro 1 immediatley
                 if (ghostTimer == 0 && ghostIntro1 != nil && ghostEntity != nil) {
                     ghostEntity!.playAudio(ghostIntro1!)
                 }
+                // Play intro 2 after first task complete
+                if (ghostTimer == 19 && ghostIntro2 != nil && ghostEntity != nil) {
+                    ghostEntity!.playAudio(ghostIntro2!)
+                }
+                // Play intro 2 after first task complete
+                if (ghostTimer == 30 && ghostIntro3 != nil && ghostEntity != nil) {
+                    ghostEntity!.playAudio(ghostIntro3!)
+                }
+                // Move ghost at specific times with sounds
                 if let transform = ghostTransforms[ghostTimer] {
                     if (ghostEntity != nil) {
                         ghostEntity!.move(to: transform, relativeTo: ghostEntity!, duration: 1.5)
                     }
                 }
+                // Intro complete
                 if (ghostTimer > introCompleteAtSec) {
                     isIntroComplete = true
                 }
                 return
             }
-            timeRemaining = updateTimeTextEntity(timeText: timeEntity)
-            // TODO Lose state
+            if (!isLevelComplete) {
+                timeRemaining = updateTimeTextEntity(timeText: timeEntity)
+            }
         })
     }
     
@@ -219,5 +268,29 @@ struct Room01: View, Room {
                 fireLastUpdated = Date()
             }
         }
+    }
+    
+    func saveRoomComplete() {
+        let fetchData = NSFetchRequest<NSFetchRequestResult>(entityName: "RoomState")
+        if let result = try? viewContext.fetch(fetchData) as? [RoomState] {
+            if let state = result.first(where: {state in state.roomNum == 1}) {
+                state.isRoomComplete = true
+                if (state.bestTime > Int64(Room01.LEVEL_TIME - timeRemaining)) {
+                    state.bestTime = Int64(Room01.LEVEL_TIME - timeRemaining)
+                }
+                do {
+                    try viewContext.save()
+                } catch {}
+                return
+            }
+        }
+        let save = RoomState(context: viewContext)
+        save.isRoomComplete = true
+        save.roomName = "Room01"
+        save.roomNum = 1
+        save.bestTime = Int64(Room01.LEVEL_TIME - timeRemaining)
+        do {
+            try viewContext.save()
+        } catch {}
     }
 }

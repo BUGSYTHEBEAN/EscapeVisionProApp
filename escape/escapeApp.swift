@@ -10,6 +10,7 @@ import RealityKitContent
 
 @main
 struct escapeApp: App {
+    @StateObject private var coreDataStack = CoreDataStack.shared
     @State private var level = 1
     
     init() {
@@ -21,10 +22,12 @@ struct escapeApp: App {
         // https://developer.apple.com/documentation/SwiftUI/EnvironmentValues/openImmersiveSpace
         ImmersiveSpace(id: "Room01") {
             Room01()
+                .environment(\.managedObjectContext, coreDataStack.persistentContainer.viewContext)
         }.immersionStyle(selection: .constant(.full), in: .full)
         
         WindowGroup(id: "Menu") {
             Menu()
+                .environment(\.managedObjectContext, coreDataStack.persistentContainer.viewContext)
         }.windowStyle(.volumetric)
     }
 }
