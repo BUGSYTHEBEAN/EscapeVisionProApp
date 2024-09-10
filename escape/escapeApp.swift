@@ -24,10 +24,14 @@ struct escapeApp: App {
             Room01()
                 .environment(\.managedObjectContext, coreDataStack.persistentContainer.viewContext)
         }.immersionStyle(selection: .constant(.full), in: .full)
+        ImmersiveSpace(id: "Room02") {
+            Room02()
+                .environment(\.managedObjectContext, coreDataStack.persistentContainer.viewContext)
+        }.immersionStyle(selection: .constant(.full), in: .full)
         
         WindowGroup(id: "Menu") {
             Menu()
                 .environment(\.managedObjectContext, coreDataStack.persistentContainer.viewContext)
-        }.windowStyle(.volumetric)
+        }.windowStyle(.volumetric).defaultSize(width: 1, height: 1, depth: 0.5, in: .meters)
     }
 }

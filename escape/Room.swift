@@ -50,4 +50,17 @@ extension Room {
         }
         return 0
     }
+    
+    func createSkybox(name: String) -> Entity? {
+        let sphere = MeshResource.generateSphere(radius: 1E3) // 1000
+        var skyboxMaterial = UnlitMaterial()
+        if let skyboxPng = try? TextureResource.load(named: name) {
+            skyboxMaterial.color = .init(texture: .init(skyboxPng))
+        }
+        let skybox = Entity()
+        skybox.components.set(ModelComponent(mesh: sphere, materials: [skyboxMaterial]))
+        skybox.orientation = .init(ix: 0, iy: 1, iz: 0, r: 0)
+        skybox.scale = .init(x: -1, y: 1, z: 1)
+        return skybox
+    }
 }

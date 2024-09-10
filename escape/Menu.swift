@@ -121,10 +121,11 @@ struct Menu: View {
                 room.addChild(check)
                 check.move(to: Transform(pitch: 0, yaw: 0, roll: -1.57), relativeTo: parent)
                 check.setPosition(pos, relativeTo: parent)
-                check.setScale(SIMD3(x: 0.2, y: 0.2, z: 0.2), relativeTo: check)
+                check.setScale(SIMD3(x: 0.15, y: 0.15, z: 0.15), relativeTo: check)
             }
             pos.x -= 0.07
-            pos.y -= 0.1
+            pos.y -= 0.08
+            pos.z += 0.01
             let bestTimeText = getTextEntity(text: String(Duration.seconds(bestTime).formatted(.time(pattern: .minuteSecond))), color: UIColor(red: 100/255, green: 230/255, blue: 100/255, alpha: 1))
             room.addChild(bestTimeText)
             bestTimeText.move(to: Transform(pitch: 0, yaw: 0, roll: 0), relativeTo: parent)
