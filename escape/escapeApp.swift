@@ -29,6 +29,12 @@ struct escapeApp: App {
                 .environment(\.managedObjectContext, coreDataStack.persistentContainer.viewContext)
         }.immersionStyle(selection: .constant(.full), in: .full)
         
+        
+//        WindowGroup(id: "RequestReview") {
+//            RequestReview()
+//                .environment(\.managedObjectContext, coreDataStack.persistentContainer.viewContext)
+//        }.windowStyle(.plain)
+        
         WindowGroup(id: "Menu") {
             Menu()
                 .environment(\.managedObjectContext, coreDataStack.persistentContainer.viewContext)

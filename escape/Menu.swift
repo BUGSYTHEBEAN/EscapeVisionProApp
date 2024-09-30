@@ -11,6 +11,7 @@ import RealityKitContent
 import CoreData
 
 struct Menu: View {
+    @Environment(\.openWindow) private var openWindow
     @Environment(\.openImmersiveSpace) private var openImmersiveSpace
     @Environment(\.managedObjectContext) private var viewContext
     @State private var rootEntity: Entity?
@@ -48,6 +49,10 @@ struct Menu: View {
                 menu.children.first?.children.forEach({ room in
                     if let buttonComponent = room.components[ButtonComponent.self] {
                         let state = getRoomState(roomNum: buttonComponent.getButtonNum())
+//                        if (buttonComponent.getButtonNum() == 1 && state.state == RoomStateEnum.complete) {
+//                            print("Requesting review (commented for now)")
+//                            openWindow(id: "RequestReview")
+//                        }
                         addRoomStateEntity(room: room, parent: menu, roomState: state.state, bestTime: state.bestTime)
                     }
                     if let ani = room.availableAnimations.first {
@@ -126,7 +131,7 @@ struct Menu: View {
             pos.x -= 0.07
             pos.y -= 0.08
             pos.z += 0.01
-            let bestTimeText = getTextEntity(text: String(Duration.seconds(bestTime).formatted(.time(pattern: .minuteSecond))), color: UIColor(red: 100/255, green: 230/255, blue: 100/255, alpha: 1))
+            let bestTimeText = getTextEntity(text: String(Duration.seconds(bestTime).formatted(.time(pattern: .minuteSecond))), color: UIColor(red: 0.265, green: 0.665, blue: 0.266, alpha: 1))
             room.addChild(bestTimeText)
             bestTimeText.move(to: Transform(pitch: 0, yaw: 0, roll: 0), relativeTo: parent)
             bestTimeText.setPosition(pos, relativeTo: parent)

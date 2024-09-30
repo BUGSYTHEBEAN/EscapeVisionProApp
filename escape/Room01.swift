@@ -39,6 +39,8 @@ struct Room01: View, Room {
     @State private var fireParticleEmitter: Entity?
     @State private var fireLastUpdated = Date()
     @State private var fireColor = 0
+    @State private var isLightOn = true
+    @State private var lightEntity: Entity?
     // Sounds
     @State private var clickSound: AudioFileResource?
     @State private var ghostIntro1: AudioFileResource?
@@ -65,10 +67,11 @@ struct Room01: View, Room {
                 dismissWindow(id: "Menu")
 
                 // Add an ImageBasedLight for the immersive content
-                guard let resource = try? await EnvironmentResource(named: "ImageBasedLight") else { return }
-                let iblComponent = ImageBasedLightComponent(source: .single(resource), intensityExponent: 0.25)
-                immersiveContentEntity.components.set(iblComponent)
-                immersiveContentEntity.components.set(ImageBasedLightReceiverComponent(imageBasedLight: immersiveContentEntity))
+                // TODO: light is broken
+//                guard let resource = try? await EnvironmentResource(named: "ImageBasedLight") else { return }
+//                let iblComponent = ImageBasedLightComponent(source: .single(resource), intensityExponent: 0.25)
+//                immersiveContentEntity.components.set(iblComponent)
+//                immersiveContentEntity.components.set(ImageBasedLightReceiverComponent(imageBasedLight: immersiveContentEntity))
                 
                 if let ghost = immersiveContentEntity.findEntity(named: "Ghost") {
                     ghostEntity = ghost
@@ -87,7 +90,7 @@ struct Room01: View, Room {
                 }
                 
                 if let topSafe = immersiveContentEntity.findEntity(named: "Safe_Top_Hitbox") as? ModelEntity {
-                    topSafe.model?.materials = [UnlitMaterial(color: .clear)]
+                    topSafe.model?.materials = [SimpleMaterial(color: .clear, isMetallic: false)]
                     safeTopSubscription = content.subscribe(to: CollisionEvents.Began.self, on: topSafe, { event in
                         if (event.entityB.name == "Donut") {
                             isIntroDonutComplete = true
@@ -98,7 +101,7 @@ struct Room01: View, Room {
                 }
                 
                 if let fireplace = immersiveContentEntity.findEntity(named: "FireplaceHitbox") as? ModelEntity {
-                    fireplace.model?.materials = [UnlitMaterial(color: .clear)]
+                    fireplace.model?.materials = [SimpleMaterial(color: .clear, isMetallic: false)]
                     lighterSubscription = content.subscribe(to: CollisionEvents.Began.self, on: fireplace, { event in
                         if (event.entityB.name == "Lighter") {
                             isFireLit = true
@@ -134,6 +137,10 @@ struct Room01: View, Room {
                             }
                         }
                     })
+                }
+                
+                if let light = immersiveContentEntity.findEntity(named: "PointLight") {
+                    lightEntity = light
                 }
             }
             // Load Assets
@@ -191,6 +198,23 @@ struct Room01: View, Room {
             }
         }))
         .gesture(SpatialTapGesture().targetedToAnyEntity().onEnded({ e in
+            if (e.entity.name == "LightSwitch") {
+                let ani = e.entity.availableAnimations.first
+                if (ani != nil) {
+                    if (isLightOn) {
+                        e.entity.playAnimation(ani!)
+                        setLight(brightness: 5000)
+                    } else {
+                        var reversedDef = ani!.definition
+                        reversedDef.speed = -1
+                        if let reversedAni = try? AnimationResource.generate(with: reversedDef) {
+                            e.entity.playAnimation(reversedAni)
+                        }
+                        setLight(brightness: 15000)
+                    }
+                }
+                isLightOn = !isLightOn
+            }
             if (isLockOpened && e.entity.name == "WoodDoor") {
                 let ani = e.entity.availableAnimations.first
                 if (ani != nil) {
@@ -292,5 +316,12 @@ struct Room01: View, Room {
         do {
             try viewContext.save()
         } catch {}
+    }
+    
+    func setLight(brightness: Float) {
+        if var pointLightComponent = lightEntity?.components[PointLightComponent.self] {
+            pointLightComponent.intensity = brightness
+            lightEntity!.components.set(pointLightComponent)
+        }
     }
 }
