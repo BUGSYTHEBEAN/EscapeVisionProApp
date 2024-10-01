@@ -58,6 +58,7 @@ struct Menu: View {
                     if let ani = room.availableAnimations.first {
                         room.playAnimation(ani.repeat())
                     }
+                    room.components.set(HoverEffectComponent())
                 })
                 instructionBottom = getTextEntity(text: "Tap to play!", color: UIColor(red: 140/255, green: 210/255, blue: 240/255, alpha: 1))
                 if (instructionBottom != nil) {

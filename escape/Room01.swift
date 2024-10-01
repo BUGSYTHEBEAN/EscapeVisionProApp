@@ -16,7 +16,7 @@ struct Room01: View, Room {
     @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
     @Environment(\.managedObjectContext) private var viewContext
     // Protocol vars for all rooms
-    static let LEVEL_TIME = 5 * 60
+    static let LEVEL_TIME = 9 * 60
     @State internal var timeRemaining = LEVEL_TIME
     // Subscriptions, subs are permanent
     @State private var subs: [EventSubscription] = []
@@ -41,6 +41,8 @@ struct Room01: View, Room {
     @State private var fireColor = 0
     @State private var isLightOn = true
     @State private var lightEntity: Entity?
+    @State private var hintEntity: Entity?
+    @State private var doorEntity: Entity?
     // Sounds
     @State private var clickSound: AudioFileResource?
     @State private var ghostIntro1: AudioFileResource?
@@ -123,6 +125,10 @@ struct Room01: View, Room {
                     }
                 })
                 
+                if let door = immersiveContentEntity.findEntity(named: "WoodDoor") {
+                    doorEntity = door
+                }
+                
                 if let lock = immersiveContentEntity.findEntity(named: "Lock") {
                     lockSubscription = content.subscribe(to: CollisionEvents.Began.self, on: lock, { event in
                         if (event.entityB.name == "Key") {
@@ -134,13 +140,22 @@ struct Room01: View, Room {
                                 event.entityB.removeFromParent()
                                 isLockOpened = true
                                 lockSubscription?.cancel()
+                                if (doorEntity != nil) {
+                                    doorEntity?.components.set(HoverEffectComponent())
+                                }
                             }
                         }
                     })
                 }
-                
+                if let lightSwitch = immersiveContentEntity.findEntity(named: "LightSwitch") {
+                    lightSwitch.components.set(HoverEffectComponent())
+                }
                 if let light = immersiveContentEntity.findEntity(named: "PointLight") {
                     lightEntity = light
+                }
+                if let hint = immersiveContentEntity.findEntity(named: "Hint") {
+                    hint.isEnabled = false
+                    hintEntity = hint
                 }
             }
             // Load Assets
@@ -203,19 +218,19 @@ struct Room01: View, Room {
                 if (ani != nil) {
                     if (isLightOn) {
                         e.entity.playAnimation(ani!)
-                        setLight(brightness: 5000)
+                        setLight(isOn: false)
                     } else {
                         var reversedDef = ani!.definition
                         reversedDef.speed = -1
                         if let reversedAni = try? AnimationResource.generate(with: reversedDef) {
                             e.entity.playAnimation(reversedAni)
                         }
-                        setLight(brightness: 15000)
+                        setLight(isOn: true)
                     }
                 }
                 isLightOn = !isLightOn
             }
-            if (isLockOpened && e.entity.name == "WoodDoor") {
+            if (isLockOpened && e.entity.name == "WoodDoor" && !isLevelComplete) {
                 let ani = e.entity.availableAnimations.first
                 if (ani != nil) {
                     e.entity.playAnimation(ani!)
@@ -318,10 +333,13 @@ struct Room01: View, Room {
         } catch {}
     }
     
-    func setLight(brightness: Float) {
+    func setLight(isOn: Bool) {
         if var pointLightComponent = lightEntity?.components[PointLightComponent.self] {
-            pointLightComponent.intensity = brightness
+            pointLightComponent.intensity = isOn ? 15000 : 4000
             lightEntity!.components.set(pointLightComponent)
+        }
+        if (hintEntity != nil) {
+            hintEntity!.isEnabled = !isOn
         }
     }
 }
