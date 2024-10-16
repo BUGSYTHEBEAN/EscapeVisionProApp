@@ -23,12 +23,12 @@ struct escapeApp: App {
         ImmersiveSpace(id: "Room01") {
             Room01()
                 .environment(\.managedObjectContext, coreDataStack.persistentContainer.viewContext)
-        }.immersionStyle(selection: .constant(.full), in: .full)
+        }.immersionStyle(selection: .constant(.mixed), in: .mixed) // Mixed to see room on door open
+        
         ImmersiveSpace(id: "Room02") {
             Room02()
                 .environment(\.managedObjectContext, coreDataStack.persistentContainer.viewContext)
         }.immersionStyle(selection: .constant(.full), in: .full)
-        
         
 //        WindowGroup(id: "RequestReview") {
 //            RequestReview()

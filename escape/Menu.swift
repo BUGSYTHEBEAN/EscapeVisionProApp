@@ -60,7 +60,6 @@ struct Menu: View {
                     }
                     room.components.set(HoverEffectComponent())
                 })
-                instructionBottom = getTextEntity(text: "Tap to play!", color: UIColor(red: 140/255, green: 210/255, blue: 240/255, alpha: 1))
                 if (instructionBottom != nil) {
                     instructionBottom!.position = SIMD3(x: -0.25, y: -0.45, z: 0)
                     content.add(instructionBottom!)

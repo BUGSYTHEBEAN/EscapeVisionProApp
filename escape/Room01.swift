@@ -16,7 +16,7 @@ struct Room01: View, Room {
     @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
     @Environment(\.managedObjectContext) private var viewContext
     // Protocol vars for all rooms
-    static let LEVEL_TIME = 9 * 60
+    static let LEVEL_TIME = 15 * 60
     @State internal var timeRemaining = LEVEL_TIME
     // Subscriptions, subs are permanent
     @State private var subs: [EventSubscription] = []
@@ -32,6 +32,7 @@ struct Room01: View, Room {
     @State private var isSafeOpened = false
     @State private var isLockOpened = false
     @State private var isLevelComplete = false
+    @State private var isWinBoardDisplayed = false
     // Misc
     @State private var safePin: String = ""
     let safeButtonNames = ["Safe_Red", "Safe_Blue", "Safe_Green", "Safe_Pink"]
@@ -43,8 +44,13 @@ struct Room01: View, Room {
     @State private var lightEntity: Entity?
     @State private var hintEntity: Entity?
     @State private var doorEntity: Entity?
+    @State private var plantEntity: Entity?
+    @State private var winBoardEntity: Entity?
+    @State private var rootEntity: Entity?
     // Sounds
     @State private var clickSound: AudioFileResource?
+    @State private var switchSound: AudioFileResource?
+    @State private var lighterSound: AudioFileResource?
     @State private var ghostIntro1: AudioFileResource?
     @State private var ghostIntro2: AudioFileResource?
     @State private var ghostIntro3: AudioFileResource?
@@ -65,15 +71,9 @@ struct Room01: View, Room {
         RealityView { content in
             // Add the entire room
             if let immersiveContentEntity = try? await Entity(named: "Room01", in: realityKitContentBundle) {
+                rootEntity = immersiveContentEntity
                 content.add(immersiveContentEntity)
                 dismissWindow(id: "Menu")
-
-                // Add an ImageBasedLight for the immersive content
-                // TODO: light is broken
-//                guard let resource = try? await EnvironmentResource(named: "ImageBasedLight") else { return }
-//                let iblComponent = ImageBasedLightComponent(source: .single(resource), intensityExponent: 0.25)
-//                immersiveContentEntity.components.set(iblComponent)
-//                immersiveContentEntity.components.set(ImageBasedLightReceiverComponent(imageBasedLight: immersiveContentEntity))
                 
                 if let ghost = immersiveContentEntity.findEntity(named: "Ghost") {
                     ghostEntity = ghost
@@ -107,6 +107,9 @@ struct Room01: View, Room {
                     lighterSubscription = content.subscribe(to: CollisionEvents.Began.self, on: fireplace, { event in
                         if (event.entityB.name == "Lighter") {
                             isFireLit = true
+                            if (lighterSound != nil) {
+                                event.entityB.playAudio(lighterSound!)
+                            }
                             fireplace.removeFromParent()
                             lighterSubscription?.cancel()
                         }
@@ -157,6 +160,12 @@ struct Room01: View, Room {
                     hint.isEnabled = false
                     hintEntity = hint
                 }
+                if let book = immersiveContentEntity.findEntity(named: "BookWithKey") {
+                    book.components.set(BillboardComponent())
+                }
+                if let plant = immersiveContentEntity.findEntity(named: "PottedPlant") {
+                    plantEntity = plant
+                }
             }
             // Load Assets
             if let click = try? AudioFileResource.load(named: "/Root/Sounds/Click", from: "Room01.usda", in: realityKitContentBundle) {
@@ -170,6 +179,15 @@ struct Room01: View, Room {
             }
             if let intro3 = try? AudioFileResource.load(named: "/Root/Sounds/Intro_3", from: "Room01.usda", in: realityKitContentBundle) {
                 ghostIntro3 = intro3
+            }
+            if let lightSwitchSound = try? AudioFileResource.load(named: "/Root/Sounds/Switch", from: "Room01.usda", in: realityKitContentBundle) {
+                switchSound = lightSwitchSound
+            }
+            if let lighterStartSound = try? AudioFileResource.load(named: "/Root/Sounds/LighterStart", from: "Room01.usda", in: realityKitContentBundle) {
+                lighterSound = lighterStartSound
+            }
+            if let winBoard = try? await Entity(named: "WinScene", in: realityKitContentBundle) {
+                winBoardEntity = winBoard
             }
         } update: { content in
         }
@@ -203,9 +221,6 @@ struct Room01: View, Room {
                         safeButton.entity.playAudio(clickSound!)
                     }
                 }
-                if let clickSound = try? AudioFileResource.load(named: "/Root/Sounds/Click", from: "Room01.usda", in: realityKitContentBundle) {
-                    safeButton.entity.playAudio(clickSound)
-                }
             }
             if (safePin.contains(correctPin)) {
                 safeButton.entity.parent?.move(to: Transform(rotation: simd_quatf(angle: 1.9, axis: SIMD3(x: 0, y: 1, z: 0))), relativeTo: safeButton.entity.parent, duration: 3.0, timingFunction: .easeInOut)
@@ -228,7 +243,16 @@ struct Room01: View, Room {
                         setLight(isOn: true)
                     }
                 }
+                if (switchSound != nil) {
+                    e.entity.playAudio(switchSound!)
+                }
                 isLightOn = !isLightOn
+                if (plantEntity != nil) {
+                    if var gestureComponent = plantEntity!.components[GestureComponent.self] {
+                        gestureComponent.canDrag = true
+                        plantEntity!.components.set(gestureComponent)
+                    }
+                }
             }
             if (isLockOpened && e.entity.name == "WoodDoor" && !isLevelComplete) {
                 let ani = e.entity.availableAnimations.first
@@ -239,7 +263,7 @@ struct Room01: View, Room {
                 isLevelComplete = true
                 saveRoomComplete()
             }
-            if (e.entity.name == "Timer_Transform") {
+            if (e.entity.name == "Timer_Transform" || e.entity.name == "WinBoard") {
                 Task {
                     openWindow(id: "Menu")
                     await dismissImmersiveSpace()
@@ -276,8 +300,15 @@ struct Room01: View, Room {
                 }
                 return
             }
-            if (!isLevelComplete) {
+            if (!isLevelComplete && timeRemaining >= 0) {
                 timeRemaining = updateTimeTextEntity(timeText: timeEntity)
+            } else {
+                timeRemaining += 1
+                if (winBoardEntity != nil && !isWinBoardDisplayed) {
+                    fillWinBoard(winBoard: winBoardEntity!, levelTime: Room01.LEVEL_TIME)
+                    rootEntity?.addChild(winBoardEntity!)
+                    isWinBoardDisplayed = true
+                }
             }
         })
     }
